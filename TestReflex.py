@@ -15,7 +15,10 @@ def page(browser):
     context = browser.new_context()
     page = context.new_page()
     yield page
-    page.close()
+    # Zavření všech otevřených záložek
+    for p in context.pages:
+        if not p.is_closed():
+            p.close()
     context.close()
 
 def test_title(page):
@@ -53,15 +56,13 @@ def test_open_X_after_click(page):
     # Souhlas s reklamou
     page.click('#cpexSubs_consentButton')
 
-    # Kliknutí na ikonu X
-    page.click("path[fill='#191919']")
+     # Kliknutí na ikonu X a čekání na otevření nové záložky
+    with page.context.expect_page() as new_page_event:
+        page.click("path[fill='#191919']")
+    new_page = new_page_event.value  # Získání reference na novou stránku
 
-    # Definice toho, že click otevře nové okno nebo záložku v prohlížeči
-    new_page = None
-    for context in page.context.browser.contexts:
-        if len(context.pages) > 1:  
-            new_page = context.pages[-1]
-            break
+    # Počkání na načtení nové stránky
+    new_page.wait_for_load_state("domcontentloaded")
 
     # Ověření, že se otevřela stránka, která obsahuje požadovanou URL
     assert new_page.url and "x.com/Reflex_cz" in new_page.url, f"Nové okno neobsahuje správnou URL, nalezena: {new_page.url}"
